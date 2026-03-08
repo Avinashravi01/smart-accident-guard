@@ -13,13 +13,14 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
-load_dotenv(dotenv_path="C:\\Users\\Hp\\Downloads\\files (1)\\.env")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(dotenv_path=os.path.join(BASE_DIR, ".env"))
 
 # ── Config ────────────────────────────────────────────────────────────────────
 OPENWEATHER_KEY   = os.getenv("OPENWEATHER_API_KEY", "")
 TOMTOM_KEY        = os.getenv("TOMTOM_API_KEY", "")
-MODELS_DIR        = "C:\\Users\\Hp\\Downloads\\files (1)\\models"
-STATIC_DIR        = "C:\\Users\\Hp\\Downloads\\files (1)\\static"
+MODELS_DIR = os.path.join(BASE_DIR, "models")
+STATIC_DIR = os.path.join(BASE_DIR, "static")
 WEATHER_CACHE_TTL = 600
 ROUTE_CACHE_TTL   = 300
 
@@ -339,8 +340,9 @@ def _mock_routes(origin, destination):
 @app.get("/")
 def root():
     idx = os.path.join(STATIC_DIR, "index.html")
+    print(f"Looking for index.html at: {idx}")
+    print(f"File exists: {os.path.exists(idx)}")
     return FileResponse(idx) if os.path.exists(idx) else {"message":"Chennai TrafficAI API v2.0","docs":"/docs"}
-
 @app.get("/api/health")
 def health():
     return {
