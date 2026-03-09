@@ -117,7 +117,7 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env and add your keys:
 #   OPENWEATHER_API_KEY  — https://openweathermap.org/api (free)
-#   GOOGLE_MAPS_API_KEY  — https://console.cloud.google.com/ (free tier)
+#   TOMTOM_API_KEY  — https://tomtomapi.com/ (free tier)
 ```
 
 ### 3. Train the ML model
@@ -172,7 +172,7 @@ Or open `static/index.html` directly in a browser (set `API_BASE` in the HTML to
 - **Expected ROC-AUC**: ~0.85–0.89
 
 ### Dataset
-- 15,000 synthetic rows based on real Chennai traffic patterns
+- 25,000 synthetic rows based on real Chennai traffic patterns
 - Locations: 15 key junctions (Anna Salai, Kathipara, OMR, GST Road, etc.)
 - Seasonal monsoon patterns (June–November high rain probability)
 - Peak hour multipliers (8–10AM, 5–8PM)
@@ -249,12 +249,12 @@ Model performance metrics (ROC-AUC, feature importances, train/test split).
 2. Sign up → API Keys → Create key
 3. Add to `.env`: `OPENWEATHER_API_KEY=xxx`
 
-### Google Maps Platform
-1. Go to https://console.cloud.google.com/
+### Tomtom Maps Platform
+1. Go to https://console.tomtomapi.com/
 2. Create project → Enable **Directions API**
 3. APIs & Services → Credentials → Create API Key
-4. Add to `.env`: `GOOGLE_MAPS_API_KEY=xxx`
-5. Free tier: $200/month credit (~40,000 direction requests)
+4. Add to `.env`: `TOMTOM_API_KEY=xxx`
+5. Free tier:  (2.5k direction requests)
 
 ---
 
