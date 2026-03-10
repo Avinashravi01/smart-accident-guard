@@ -7,3 +7,6 @@ numpy==1.26.4
 requests==2.31.0
 python-dotenv==1.0.0
 pydantic==2.6.0
+
+to train ml model
+install feedparser pandas numpy xgboost scikit-learn python-dateutil
