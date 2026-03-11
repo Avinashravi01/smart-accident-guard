@@ -1,5 +1,5 @@
 """
-Retrain model on real scraped dataset
+Retrain model with better negative samples for realistic predictions
 """
 import pandas as pd, pickle, os, json, random
 from sklearn.ensemble import RandomForestClassifier
@@ -9,29 +9,32 @@ from sklearn.metrics import roc_auc_score, accuracy_score
 import xgboost as xgb
 from datetime import datetime
 
-OUTPUT     = r"C:\Users\Hp\Downloads\smart accident guard\chennai_accidents_scraped_real.csv"
+OUTPUT     = r"C:\Users\Hp\Downloads\smart accident guard\datasets\chennai_accidents_scraped_real.csv"
 MODELS_DIR = r"C:\Users\Hp\Downloads\smart accident guard\project\models"
 
 df   = pd.read_csv(OUTPUT)
 real = df[df['accident'] == 1].copy()
 print(f"Real records: {len(real)}")
 
-# Generate negatives from same real locations
+# Generate 3x negatives with MORE DIVERSITY
 neg = []
 for _, row in real.iterrows():
-    n = row.to_dict()
-    n['hour']          = random.choice([6, 11, 13, 14, 21, 23, 3])
-    n['is_peak_hour']  = 0
-    n['congestion_pct'] = max(5, random.randint(10, 50))
-    n['hour'] = random.choice([6, 7, 11, 13, 14, 15, 21, 22, 23, 2, 3, 4])
-    n['speed_kmh']     = min(80, n['speed_kmh'] + 20)
-    n['source_url']    = 'generated-negative'
-    n['headline']      = ''
-    n['accident']      = 0
-    neg.append(n)
+    for _ in range(3):
+        n = row.to_dict()
+        n['hour']           = random.choice([6,7,11,13,14,15,21,22,23,2,3,4])
+        n['is_peak_hour']   = 0
+        n['congestion_pct'] = random.randint(10, 55)
+        n['speed_kmh']      = random.randint(30, 80)
+        n['visibility_km']  = random.uniform(6, 15)
+        n['rainfall_mm']    = 0.0
+        n['is_junction']    = random.randint(0, 1)
+        n['source_url']     = 'generated-negative'
+        n['headline']       = ''
+        n['accident']       = 0
+        neg.append(n)
 
 df_full = pd.concat([real, pd.DataFrame(neg)]).sample(frac=1, random_state=42).reset_index(drop=True)
-print(f"Total with negatives: {len(df_full)}")
+print(f"Real: {len(real)} | Negatives: {len(neg)} | Total: {len(df_full)}")
 
 wm = {'Clear':0,'Drizzle':1,'Light Rain':2,'Heavy Rain':3,'Fog':4,'Unknown':0}
 rm = {'Highway':0,'Arterial':1,'Urban':2,'Coastal':3,'Industrial':4,'Flyover':5,'Expressway':0,'Commercial':2,'Coastal Highway':3}
@@ -77,6 +80,23 @@ print(f"RF AUC:       {roc_auc_score(y_test, rp):.4f}")
 print(f"Ensemble AUC: {roc_auc_score(y_test, ep):.4f}")
 print(f"Accuracy:     {accuracy_score(y_test, (ep>0.5).astype(int)):.4f}")
 
+# Show sample predictions to verify realistic range
+print(f"\nSample risk scores (should vary 20-90%):")
+sample_inputs = [
+    [9,  0, 31, 72, 15, 8, 0, 85, 25, 1, 0, 0, 0, 1, 1],
+    [14, 0, 31, 72, 15, 8, 0, 45, 50, 0, 0, 0, 0, 2, 2],
+    [23, 1, 28, 65, 10, 10, 0, 15, 70, 0, 0, 0, 0, 0, 3],
+    [8,  1, 31, 72, 15, 8, 0, 90, 15, 1, 0, 1, 0, 1, 1],
+    [3,  0, 29, 68, 12, 9, 0, 20, 65, 0, 0, 0, 0, 2, 0],
+]
+sample_sc = sc.transform(sample_inputs)
+labels = ['Peak+Busy Road', 'Afternoon Normal', 'Late Night Highway', 'Peak+Junction', 'Early Morning']
+for i, (inp, sc_inp) in enumerate(zip(sample_inputs, sample_sc)):
+    xp_s = xm.predict_proba([inp])[0][1]
+    rp_s = rf.predict_proba([sc_inp])[0][1]
+    ep_s = 0.55*xp_s + 0.45*rp_s
+    print(f"  {labels[i]}: {ep_s*100:.1f}%")
+
 os.makedirs(MODELS_DIR, exist_ok=True)
 bundle = {'xgb': xm, 'rf': rf, 'scaler': sc, 'features': features}
 with open(os.path.join(MODELS_DIR, 'accident_model.pkl'), 'wb') as f:
@@ -86,11 +106,11 @@ meta = {
     'trained_on':    str(datetime.now()),
     'real_records':  len(real),
     'total_records': len(df_full),
-    'sources':       '313 real news articles from 30+ publishers (2015-2026)',
+    'negative_ratio': '3:1',
     'ensemble_auc':  round(roc_auc_score(y_test, ep), 4)
 }
 with open(os.path.join(MODELS_DIR, 'model_meta.json'), 'w') as f:
     json.dump(meta, f, indent=2)
 
-print("\nModel saved!")
-print(f"Path: {MODELS_DIR}\\accident_model.pkl")
+print(f"\n✅ Model saved!")
+print(f"🚀 Restart: uvicorn project.main:app --reload")

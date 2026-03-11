@@ -750,14 +750,7 @@ function findNearestZone(lat, lng) {
 map.on('click', e => {
   if(isAnalyzing) return;
   const lat = e.latlng.lat, lng = e.latlng.lng;
-  const { zone, distance } = findNearestZone(lat, lng);
-
-  // Only allow clicks within trained zone radius
-  if(distance > 0.08){
-    showBanner('⚠ Click inside a marked Chennai zone for ML prediction. Zones are highlighted on map.', 'warn');
-    return;
-  }
-  analyzeLocation(zone.lat, zone.lng);
+  analyzeLocation(lat, lng);
 });
 
 function setSpinner(on, msg='ANALYZING LOCATION'){
@@ -950,28 +943,46 @@ function renderLocationAnalysis(loc, lat, lng){
 /* ═══════════════════════════════════════════════════════════════
    RIGHT PANEL — Predictions, History, Zones
    ═══════════════════════════════════════════════════════════════ */
-const globalPredictions=[
-  {icon:'🆘',location:'Kathipara Junction',zone:'Central Chennai',desc:'CRITICAL: Multi-vehicle risk HIGH. Waterlogging on underpass.',risk:92,color:'#ff2d55'},
-  {icon:'🚨',location:'Anna Salai',zone:'Central Chennai',desc:'Extreme congestion 5–7PM. High collision risk at Gemini Flyover.',risk:85,color:'#ff2d55'},
-  {icon:'🚨',location:'T Nagar',zone:'Central Chennai',desc:'Extreme commercial congestion. Pedestrian risk HIGH.',risk:78,color:'#ff2d55'},
-  {icon:'🚛',location:'GST Road',zone:'West Chennai',desc:'Heavy freight + wet roads — high collision risk near Tambaram.',risk:75,color:'#ff6b35'},
-  {icon:'🚌',location:'Koyambedu',zone:'Central Chennai',desc:'Heavy freight + pedestrian conflict near market.',risk:70,color:'#ffcc00'},
-  {icon:'⚠️',location:'OMR IT Corridor',zone:'South Chennai',desc:'Peak hour congestion 6–8PM near Perungudi signal.',risk:62,color:'#ffcc00'},
-  {icon:'✅',location:'ECR Beach',zone:'East Chennai',desc:'Stable conditions. Low traffic + clear roads.',risk:18,color:'#39ff14'},
-];
-const globalAccidents=[
-  {time:'2h ago',location:'Adyar Signal',zone:'South Chennai',detail:'Minor rear-end · 2 vehicles',severity:'#ff2d55'},
-  {time:'5h ago',location:'Koyambedu Flyover',zone:'Central Chennai',detail:'Skid on wet road · No injury',severity:'#ffcc00'},
-  {time:'8h ago',location:'Kathipara Jcn',zone:'Central Chennai',detail:'Side collision · 3 vehicles',severity:'#ff2d55'},
-  {time:'1d ago',location:'OMR Perungudi',zone:'South Chennai',detail:'Minor crash · 1 injury',severity:'#ffcc00'},
-  {time:'1d ago',location:'Mount Road Km 4',zone:'Central Chennai',detail:'Fatal accident · Road closed 2h',severity:'#ff2d55'},
-  {time:'2d ago',location:'GST Road Toll',zone:'West Chennai',detail:'Rear-end collision · Truck',severity:'#ffcc00'},
-  {time:'3d ago',location:'Poonamallee Byp',zone:'West Chennai',detail:'Minor scrape · No injury',severity:'#39ff14'},
-];
-const zones=[
-  {name:'Central Chennai',risk:82,incidents:24},{name:'South Chennai (OMR)',risk:65,incidents:17},
-  {name:'West Chennai',risk:71,incidents:20},{name:'North Chennai',risk:48,incidents:11},{name:'ECR Corridor',risk:30,incidents:6},
-];
+let globalPredictions=[];
+let globalAccidents=[];
+let zones=[];
+
+async function loadDashboardData(){
+  const data = await apiFetch('/api/dashboard');
+  if(!data) return;
+
+  globalPredictions = data.predictions.map(p => ({
+    icon:     p.icon,
+    location: p.name,
+    zone:     p.name.includes('ECR')||p.name.includes('OMR') ? 'East Chennai' : 'Chennai',
+    desc:     p.desc + (p.real_incidents > 0 ? ` (${p.real_incidents} real incidents recorded)` : ''),
+    risk:     p.risk,
+    color:    p.color,
+  }));
+
+  globalAccidents = data.accidents.map(a => ({
+    time:     a.time,
+    location: a.location,
+    zone:     a.zone,
+    detail:   a.detail,
+    severity: a.severity,
+  }));
+
+  zones = data.zones.map(z => ({
+    name:      z.name,
+    risk:      z.risk,
+    incidents: z.incidents,
+  }));
+
+  // Rebuild panels with real datas
+  buildMLPredictions(null, null, null);
+  buildAccidentHistory(null, null);
+  buildZoneSummary(null);
+
+  if(data.real_data){
+    console.log(`✅ Dashboard loaded with ${data.total_records} real records`);
+  }
+}
 
 function buildMLPredictions(mlPred, highlightZone, fallbackLoc){
   const el=document.getElementById('predictions-list'); el.innerHTML='';
@@ -1062,11 +1073,7 @@ function buildZoneSummary(highlightZone){
 /* ═══════════════════════════════════════════════════════════════
    AUTO REFRESH
    ═══════════════════════════════════════════════════════════════ */
-async function autoRefresh(){
-  loadWeather();
-  routeData.forEach(r=>{ r.congestion=Math.max(10,Math.min(98,r.congestion+(Math.random()*10-5))); });
-  buildRouteLines(); buildRouteCards();
-}
+
 
 /* ═══════════════════════════════════════════════════════════════
    INIT
@@ -1076,6 +1083,7 @@ async function autoRefresh(){
   leafletPopupStyle.textContent=`.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#0d1520!important;color:#c8dae8!important;border:1px solid #1a2d45!important;border-radius:0!important;box-shadow:0 4px 20px rgba(0,0,0,0.6)!important;}.leaflet-popup-close-button{color:#4a6272!important;}`;
   document.head.appendChild(leafletPopupStyle);
 
+  loadDashboardData();
   buildMLPredictions(null, null, null);
   buildAccidentHistory(null, null);
   buildZoneSummary(null);

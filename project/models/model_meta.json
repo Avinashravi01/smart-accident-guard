@@ -1,7 +1,7 @@
 {
-  "trained_on": "2026-03-11 00:59:08.413664",
+  "trained_on": "2026-03-11 14:58:07.698789",
   "real_records": 323,
-  "total_records": 646,
-  "sources": "313 real news articles from 30+ publishers (2015-2026)",
-  "ensemble_auc": 0.9986
+  "total_records": 1292,
+  "negative_ratio": "3:1",
+  "ensemble_auc": 1.0
 }
